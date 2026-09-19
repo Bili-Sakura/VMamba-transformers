@@ -12,11 +12,46 @@ Paper: ([arXiv 2401.10166](https://arxiv.org/abs/2401.10166))
 </div>
 
 
-## 🔥 use VMamba with only ***one file*** and in ***fewest steps*** !
+## 🔥 Use VMamba as a custom Hugging Face pipeline
+
+No official `huggingface/transformers` PR and no original-repo env (`mamba_ssm`, Triton, yacs, timm) required. The model lives in [`src/vmamba`](src/vmamba) and the inference entry point is [`src/vmamba/pipeline.py`](src/vmamba/pipeline.py).
+
 ```bash
-conda create -n vmamba python=3.10
-pip install torch==2.2 torchvision torchaudio triton pytest chardet yacs termcolor fvcore seaborn packaging ninja einops numpy==1.24.4 timm==0.4.12
-pip install https://github.com/state-spaces/mamba/releases/download/v2.2.4/mamba_ssm-2.2.4+cu12torch2.2cxx11abiTRUE-cp310-cp310-linux_x86_64.whl
+pip install torch transformers pillow torchvision
+pip install -e .
+```
+
+```python
+from vmamba import pipeline
+
+# randomly initialized official Tiny / Small / Base, or a converted checkpoint directory
+pipe = pipeline(variant="tiny")                 # image-classification
+# pipe = pipeline(model="./vmamba-tiny-s1l8")
+
+print(pipe("cat.jpg", top_k=5))
+# [{'label': '281', 'score': 0.12}, ...]
+```
+
+Convert an official `.pth` so `pipeline(model=...)` can load it:
+
+```bash
+python -m vmamba.convert_vmamba_original_to_hf \
+    --variant tiny \
+    --original_checkpoint vssm1_tiny_0230s_ckpt_epoch_264.pth \
+    --pytorch_dump_folder_path ./vmamba-tiny-s1l8
+```
+
+`save_pretrained` writes `auto_map` + `custom_pipelines` next to the weights. A Hub repo that also contains the `src/vmamba/*.py` files can then be used as:
+
+```python
+from transformers import pipeline as hf_pipeline
+hf_pipeline("image-classification", model="your-user/vmamba-tiny", trust_remote_code=True)
+```
+
+The original one-file research script is still available if you want the paper training stack:
+
+```bash
+# optional: original research env (mamba_ssm / yacs / timm)
 python vmamba.py
 ```
 
